@@ -538,26 +538,35 @@
 <script>
 // --- 0. FIREBASE SETUP ---
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
+    apiKey: "REPLACE_WITH_YOUR_API_KEY",
     authDomain: "bible-reading-plan-7ff47.firebaseapp.com",
     projectId: "bible-reading-plan-7ff47",
     storageBucket: "bible-reading-plan-7ff47.appspot.com",
     messagingSenderId: "513219887581",
-    appId: "YOUR_APP_ID"
+    appId: "REPLACE_WITH_YOUR_APP_ID"
 };
 
-if (firebaseConfig.projectId === "YOUR_PROJECT_ID") {
-    console.error("Firebase Error: Please replace 'YOUR_PROJECT_ID' with your actual Firebase Project ID in index.html.");
+const isFirebaseConfigured = !firebaseConfig.apiKey.includes("REPLACE") &&
+                             !firebaseConfig.appId.includes("REPLACE") &&
+                             firebaseConfig.projectId !== "YOUR_PROJECT_ID";
+
+if (isFirebaseConfigured) {
+    try {
+        firebase.initializeApp(firebaseConfig);
+    } catch (e) {
+        console.error("Firebase initialization failed:", e);
+    }
 } else {
-    firebase.initializeApp(firebaseConfig);
+    console.warn("Firebase is in 'Local Mode'. To enable Cloud Sync, please replace the placeholders (API Key, App ID) in the firebaseConfig object in index.html.");
 }
-const db = firebaseConfig.projectId !== "YOUR_PROJECT_ID" ? firebase.firestore() : null;
-const auth = firebaseConfig.projectId !== "YOUR_PROJECT_ID" ? firebase.auth() : {
+
+const db = isFirebaseConfigured ? firebase.firestore() : null;
+const auth = isFirebaseConfigured ? firebase.auth() : {
     onAuthStateChanged: (cb) => { /* no-op */ },
     currentUser: null,
     signInWithPopup: () => {
-        alert("Firebase not configured. Please add your Project ID to index.html.");
-        return Promise.reject("Not configured");
+        alert("Cloud Sync is not yet configured. Please add your Firebase API Key and App ID to the code. Your data is currently being saved to LocalStorage only.");
+        return Promise.reject(new Error("Firebase not configured"));
     }
 };
 
