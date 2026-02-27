@@ -364,13 +364,21 @@
             .cal-cell.completed { text-decoration: line-through; opacity: 0.6; }
             .cal-cell.empty { display: none; } 
         }
+        
+        /* Easter Egg Styling */
+        #secret-kevin {
+            cursor: default;
+            user-select: none;
+            -webkit-user-select: none;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>
-        <span>📖 Huang Super Awesome Cool Bible Plan Generator Pro 2.0 💪</span>
+        <span>📖 Huang Super Awesome Cool Bible Plan Generator Pro 2.0 <span id="secret-kevin">💪</span></span>
         <div style="display:flex; align-items:center; gap: 12px;">
             <button id="toggle-settings-btn">⚙️ Settings</button>
             <button id="theme-toggle" title="Toggle Dark/Light Mode">🌙</button>
@@ -595,12 +603,12 @@ const DOM = {
     filters: ['filter-time', 'filter-completed', 'filter-skipped'].map(id => document.getElementById(id)),
     viewRadios: document.querySelectorAll('input[name="view-mode"]'), msg: document.getElementById('message-box'),
     toggleSettingsBtn: document.getElementById('toggle-settings-btn'), settingsSection: document.getElementById('settings-section'),
-    themeToggle: document.getElementById('theme-toggle')
+    themeToggle: document.getElementById('theme-toggle'),
+    secretKevin: document.getElementById('secret-kevin')
 };
 
 // --- 3. INIT & SETUP ---
 function init() {
-    // Dynamic text for "New Plan" button
     DOM.newPlanBtn.textContent = '✨ Start new plan for ' + new Date().getFullYear();
 
     books.forEach((b, idx) => {
@@ -618,6 +626,20 @@ function init() {
     DOM.btnGen.addEventListener('click', generateInitialPlan);
     DOM.newPlanBtn.addEventListener('click', applyNewPlan);
     DOM.exportIcsBtn.addEventListener('click', exportToICS);
+    
+    // Easter Egg Listener
+    let kevinClicks = 0;
+    let kevinTimer;
+    DOM.secretKevin.addEventListener('click', () => {
+        kevinClicks++;
+        clearTimeout(kevinTimer);
+        if (kevinClicks >= 3) {
+            kevinClicks = 0;
+            applyKevinsPlan();
+        } else {
+            kevinTimer = setTimeout(() => { kevinClicks = 0; }, 800); 
+        }
+    });
     
     DOM.toggleSettingsBtn.addEventListener('click', () => { DOM.settingsSection.classList.toggle('mobile-hidden'); });
     DOM.themeToggle.addEventListener('click', toggleTheme);
@@ -762,7 +784,6 @@ function exportToICS() {
 function applyNewPlan() {
     const today = new Date();
     DOM.start.value = getLocalISODate(today); 
-    // Dynamically calculate End Date to be Dec 31 of current year
     DOM.end.value = `${today.getFullYear()}-12-31`;
     DOM.balance.value = 'verses';
     DOM.order.value = 'mix';
@@ -776,6 +797,23 @@ function applyNewPlan() {
     
     generateInitialPlan();
     showMsg(`Loaded a Fresh Plan for ${today.getFullYear()}! ✨`);
+}
+
+function applyKevinsPlan() {
+    DOM.start.value = '2026-01-12';
+    DOM.end.value = '2026-12-22';
+    DOM.balance.value = 'verses';
+    DOM.order.value = 'mix';
+    
+    DOM.daysCb.forEach(cb => {
+        const val = parseInt(cb.value);
+        cb.checked = (val >= 1 && val <= 5); 
+    });
+    
+    document.querySelectorAll('.book-cb').forEach(cb => cb.checked = true); 
+    
+    generateInitialPlan();
+    showMsg("🤫 Secret Kevin's Plan Unlocked! 🎉");
 }
 
 // --- 4. GENERATION & LOGIC ---
