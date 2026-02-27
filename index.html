@@ -546,9 +546,20 @@ const firebaseConfig = {
     appId: "YOUR_APP_ID"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
+if (firebaseConfig.projectId === "YOUR_PROJECT_ID") {
+    console.error("Firebase Error: Please replace 'YOUR_PROJECT_ID' with your actual Firebase Project ID in index.html.");
+} else {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebaseConfig.projectId !== "YOUR_PROJECT_ID" ? firebase.firestore() : null;
+const auth = firebaseConfig.projectId !== "YOUR_PROJECT_ID" ? firebase.auth() : {
+    onAuthStateChanged: (cb) => { /* no-op */ },
+    currentUser: null,
+    signInWithPopup: () => {
+        alert("Firebase not configured. Please add your Project ID to index.html.");
+        return Promise.reject("Not configured");
+    }
+};
 
 // --- 1. DATA (Embedded Verse Counts & Abbreviations) ---
 const rawData = [
