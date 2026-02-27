@@ -201,18 +201,21 @@
         button.primary:hover { background-color: var(--primary-hover); }
 
         .btn-export {
-            background-color: var(--primary); 
-            color: white; 
-            border-color: var(--primary); 
-            padding: 6px 12px; 
-            font-size: 0.75rem; 
+            background-color: transparent; 
+            color: var(--text-muted); 
+            border: 1px solid var(--border); 
+            padding: 4px 8px; 
+            font-size: 0.7rem; 
             text-transform: uppercase;
-            letter-spacing: 1px;
             font-weight: 600;
             border-radius: 4px;
             width: auto;
+            transition: all 0.2s ease;
         }
-        .btn-export:hover { background-color: var(--primary-hover); color: white; }
+        .btn-export:hover { 
+            border-color: var(--text-main); 
+            color: var(--text-main); 
+        }
 
         .preset-btn-group {
             display: flex;
@@ -343,7 +346,7 @@
             .cal-grid { grid-template-columns: repeat(1, 1fr); }
             .cal-day-name { display: none; }
             .cal-cell { min-height: auto; flex-direction: row; gap: 16px; align-items: center; border-top: none; border-bottom: 1px solid var(--border); }
-            .cal-cell.empty { display: none; } /* Mobile Bug Fix applied */
+            .cal-cell.empty { display: none; } 
             .cal-cell.has-plan { border-top: none; border-left: 3px solid var(--primary); }
             .cal-reading { margin: 0; }
             .cal-actions { margin-top: 0; }
@@ -420,8 +423,7 @@
 
             <div class="row">
                 <div class="col preset-btn-group" style="flex: 100%;">
-                    <button id="btn-kevins-plan" class="preset-btn">🎉 Kevin's Plan</button>
-                    <button id="btn-new-plan" class="preset-btn">✨ Fresh Plan</button>
+                    <button id="btn-new-plan" class="preset-btn">✨ Start new plan for ...</button>
                 </div>
             </div>
 
@@ -468,7 +470,6 @@
                 <h2 style="margin: 0;">Your Reading Schedule</h2>
                 
                 <div class="filters">
-                    <button id="btn-export-ics" class="btn-export">📅 Export (.ics)</button>
                     <div class="view-toggle">
                         <label><input type="radio" name="view-mode" value="list" checked> <span>List</span></label>
                         <label><input type="radio" name="view-mode" value="calendar"> <span>Calendar</span></label>
@@ -481,6 +482,7 @@
                     </select>
                     <label class="checkbox-label" style="font-family: system-ui, sans-serif; font-size: 0.8rem;"><input type="checkbox" id="filter-completed" checked> Hide Done</label>
                     <label class="checkbox-label" style="font-family: system-ui, sans-serif; font-size: 0.8rem;"><input type="checkbox" id="filter-skipped" checked> Hide Skipped</label>
+                    <button id="btn-export-ics" class="btn-export" title="Export to Calendar">📅 .ics</button>
                 </div>
             </div>
 
@@ -586,7 +588,6 @@ const DOM = {
     balance: document.getElementById('balance-strategy'), order: document.getElementById('reading-order'),
     daysCb: document.querySelectorAll('.day-cb'), otBooks: document.getElementById('ot-books'),
     ntBooks: document.getElementById('nt-books'), btnGen: document.getElementById('btn-generate'),
-    kevinsPlanBtn: document.getElementById('btn-kevins-plan'),
     newPlanBtn: document.getElementById('btn-new-plan'),
     exportIcsBtn: document.getElementById('btn-export-ics'),
     planSection: document.getElementById('plan-section'), tableContainer: document.getElementById('table-container'),
@@ -599,6 +600,9 @@ const DOM = {
 
 // --- 3. INIT & SETUP ---
 function init() {
+    // Dynamic text for "New Plan" button
+    DOM.newPlanBtn.textContent = '✨ Start new plan for ' + new Date().getFullYear();
+
     books.forEach((b, idx) => {
         const div = document.createElement('div');
         div.innerHTML = `<label class="checkbox-label" title="${b.name}"><input type="checkbox" class="book-cb" value="${idx}" checked> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85px;">${b.name}</span></label>`;
@@ -612,7 +616,6 @@ function init() {
     DOM.end.value = getLocalISODate(nextYear);
 
     DOM.btnGen.addEventListener('click', generateInitialPlan);
-    DOM.kevinsPlanBtn.addEventListener('click', applyKevinsPlan);
     DOM.newPlanBtn.addEventListener('click', applyNewPlan);
     DOM.exportIcsBtn.addEventListener('click', exportToICS);
     
@@ -756,23 +759,6 @@ function exportToICS() {
 }
 
 // --- QUICK PLANS LOGIC ---
-function applyKevinsPlan() {
-    DOM.start.value = '2026-01-12';
-    DOM.end.value = '2026-12-22';
-    DOM.balance.value = 'verses';
-    DOM.order.value = 'mix';
-    
-    DOM.daysCb.forEach(cb => {
-        const val = parseInt(cb.value);
-        cb.checked = (val >= 1 && val <= 5); 
-    });
-    
-    document.querySelectorAll('.book-cb').forEach(cb => cb.checked = true); 
-    
-    generateInitialPlan();
-    showMsg("Loaded Kevin's Plan! 🎉");
-}
-
 function applyNewPlan() {
     const today = new Date();
     DOM.start.value = getLocalISODate(today); 
@@ -789,7 +775,7 @@ function applyNewPlan() {
     document.querySelectorAll('.book-cb').forEach(cb => cb.checked = true); 
     
     generateInitialPlan();
-    showMsg("Loaded a Fresh Plan! ✨");
+    showMsg(`Loaded a Fresh Plan for ${today.getFullYear()}! ✨`);
 }
 
 // --- 4. GENERATION & LOGIC ---
