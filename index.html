@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Huang Super Awesome Cool Bible Plan Generator Pro 2.0 💪</title>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             /* Elegant Light Pastel Theme */
@@ -372,6 +378,23 @@
             -webkit-user-select: none;
             display: inline-block;
         }
+        .shake {
+            animation: shake 0.5s;
+            animation-iteration-count: 1;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
     </style>
 </head>
 <body>
@@ -380,6 +403,7 @@
     <h1>
         <span>📖 Huang Super Awesome Cool Bible Plan Generator Pro 2.0 <span id="secret-kevin">💪</span></span>
         <div style="display:flex; align-items:center; gap: 12px;">
+            <button id="login-btn" style="width: auto; white-space: nowrap;">Login for Sync</button>
             <button id="toggle-settings-btn">⚙️ Settings</button>
             <button id="theme-toggle" title="Toggle Dark/Light Mode">🌙</button>
         </div>
@@ -512,6 +536,20 @@
 </div>
 
 <script>
+// --- 0. FIREBASE SETUP ---
+const firebaseConfig = {
+    apiKey: "AIzaSyA6leEh1rsEZ1v1ReOIcIyrKKrnx7TE8tw",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
 // --- 1. DATA (Embedded Verse Counts & Abbreviations) ---
 const rawData = [
     ["Genesis", "OT", "Gen", "31,25,24,26,32,22,24,22,29,32,32,20,18,24,21,16,27,33,38,18,34,24,20,67,34,35,46,22,35,43,55,32,20,31,29,43,36,30,23,23,57,38,34,34,28,34,31,22,33,26"],
@@ -604,7 +642,8 @@ const DOM = {
     viewRadios: document.querySelectorAll('input[name="view-mode"]'), msg: document.getElementById('message-box'),
     toggleSettingsBtn: document.getElementById('toggle-settings-btn'), settingsSection: document.getElementById('settings-section'),
     themeToggle: document.getElementById('theme-toggle'),
-    secretKevin: document.getElementById('secret-kevin')
+    secretKevin: document.getElementById('secret-kevin'),
+    loginBtn: document.getElementById('login-btn')
 };
 
 // --- 3. INIT & SETUP ---
@@ -631,6 +670,11 @@ function init() {
     let kevinClicks = 0;
     let kevinTimer;
     DOM.secretKevin.addEventListener('click', () => {
+        // Spiritual Gains screen-shake!
+        DOM.secretKevin.classList.remove('shake');
+        void DOM.secretKevin.offsetWidth; // trigger reflow
+        DOM.secretKevin.classList.add('shake');
+
         kevinClicks++;
         clearTimeout(kevinTimer);
         if (kevinClicks >= 3) {
@@ -644,6 +688,47 @@ function init() {
     DOM.toggleSettingsBtn.addEventListener('click', () => { DOM.settingsSection.classList.toggle('mobile-hidden'); });
     DOM.themeToggle.addEventListener('click', toggleTheme);
     
+    DOM.loginBtn.addEventListener('click', () => {
+        if (auth.currentUser) {
+            auth.signOut().then(() => {
+                showMsg("Logged out successfully.");
+            });
+        } else {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(err => {
+                console.error("Login Error:", err);
+                showMsg("Login failed: " + err.message, "error");
+            });
+        }
+    });
+
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            DOM.loginBtn.textContent = `Logout (${user.displayName || 'User'})`;
+            // Fetch plan from Firestore
+            db.collection("user_plans").doc(user.uid).get().then(doc => {
+                if (doc.exists) {
+                    const cloudData = doc.data();
+                    if (cloudData) {
+                        planState = cloudData;
+                        applySettingsToUI(planState.settings);
+                        if (planState.days && planState.days.length) {
+                            saveAndRender(true);
+                            showMsg("Plan synced from cloud!");
+                        }
+                    }
+                } else {
+                    // If doc doesn't exist, we keep the local state but we will save it to cloud on next save
+                    showMsg("Logged in! Ready to sync.");
+                }
+            }).catch(err => {
+                console.error("Firestore Get Error:", err);
+            });
+        } else {
+            DOM.loginBtn.textContent = "Login for Sync";
+        }
+    });
+
     DOM.filters.forEach(el => el.addEventListener('change', saveFiltersAndRender));
     DOM.viewRadios.forEach(radio => radio.addEventListener('change', saveFiltersAndRender));
 
@@ -1021,8 +1106,12 @@ function calculateProgressAndStats() {
     }
 }
 
-function saveAndRender() {
+function saveAndRender(skipCloud = false) {
     localStorage.setItem('huangBiblePlan', JSON.stringify(planState));
+    if (!skipCloud && auth.currentUser) {
+        db.collection("user_plans").doc(auth.currentUser.uid).set(planState)
+            .catch(err => console.error("Firestore Save Error:", err));
+    }
     DOM.planSection.style.display = 'flex';
     calculateProgressAndStats();
     renderPlan();
