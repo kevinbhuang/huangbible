@@ -143,7 +143,7 @@
             color: var(--text-muted);
         }
 
-        input[type="date"], select, button {
+        input[type="date"], input[type="text"], select, button {
             font-family: system-ui, -apple-system, sans-serif;
             padding: 10px 12px; 
             border: 1px solid var(--border); 
@@ -157,8 +157,39 @@
             transition: border-color 0.2s, background-color 0.2s;
         }
         
-        input[type="date"]:focus, select:focus {
+        input[type="date"]:focus, input[type="text"]:focus, select:focus {
             border-color: var(--primary);
+        }
+
+        .saved-plan-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .saved-plan-name {
+            font-weight: 600;
+            color: var(--text-main);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+        .saved-plan-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .btn-load, .btn-delete {
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: auto;
         }
 
         .row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
@@ -485,6 +516,15 @@
                 </div>
             </div>
             
+            <div style="margin-top: 24px;">
+                <label style="border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px;">Local Saved Plans</label>
+                <div class="row" style="margin-bottom: 12px;">
+                    <div class="col" style="flex: 1;"><input type="text" id="save-plan-name" placeholder="Plan Name"></div>
+                    <div class="col" style="flex: 0 0 auto;"><button id="btn-save-plan" style="padding: 10px;">Save Current</button></div>
+                </div>
+                <div id="saved-plans-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
             <button class="primary" id="btn-generate">Generate Plan</button>
         </div>
 
@@ -654,7 +694,10 @@ const DOM = {
     toggleSettingsBtn: document.getElementById('toggle-settings-btn'), settingsSection: document.getElementById('settings-section'),
     themeToggle: document.getElementById('theme-toggle'),
     secretKevin: document.getElementById('secret-kevin'),
-    loginBtn: document.getElementById('login-btn')
+    loginBtn: document.getElementById('login-btn'),
+    savePlanName: document.getElementById('save-plan-name'),
+    btnSavePlan: document.getElementById('btn-save-plan'),
+    savedPlansList: document.getElementById('saved-plans-list')
 };
 
 // --- 3. INIT & SETUP ---
@@ -676,6 +719,8 @@ function init() {
     DOM.btnGen.addEventListener('click', generateInitialPlan);
     DOM.newPlanBtn.addEventListener('click', applyNewPlan);
     DOM.exportIcsBtn.addEventListener('click', exportToICS);
+    DOM.btnSavePlan.addEventListener('click', saveCurrentPlan);
+    renderSavedPlans();
     
     // Easter Egg Listener
     let kevinClicks = 0;
@@ -1026,6 +1071,76 @@ function distributeLogic(chaptersPool, numDays, strategy) {
 }
 
 // --- 5. REDISTRIBUTION (Skip / Unskip) ---
+// --- SAVED PLANS LOGIC ---
+function renderSavedPlans() {
+    DOM.savedPlansList.innerHTML = '';
+    const saved = JSON.parse(localStorage.getItem('huangSavedPlans') || '[]');
+
+    saved.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'saved-plan-item';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'saved-plan-name';
+        nameSpan.textContent = item.name;
+        nameSpan.title = item.name;
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'saved-plan-actions';
+
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn-load';
+        loadBtn.textContent = 'Load';
+        loadBtn.onclick = () => loadSavedPlan(idx);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn-delete';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = () => deleteSavedPlan(idx);
+
+        actionsDiv.appendChild(loadBtn);
+        actionsDiv.appendChild(deleteBtn);
+        div.appendChild(nameSpan);
+        div.appendChild(actionsDiv);
+        DOM.savedPlansList.appendChild(div);
+    });
+}
+
+function saveCurrentPlan() {
+    const name = DOM.savePlanName.value.trim();
+    if (!name) return showMsg("Please enter a name for the plan.", "error");
+
+    const saved = JSON.parse(localStorage.getItem('huangSavedPlans') || '[]');
+    saved.push({ name: name, state: JSON.parse(JSON.stringify(planState)) });
+    localStorage.setItem('huangSavedPlans', JSON.stringify(saved));
+
+    DOM.savePlanName.value = '';
+    renderSavedPlans();
+    showMsg(`Plan "${name}" saved locally!`);
+}
+
+function loadSavedPlan(idx) {
+    const saved = JSON.parse(localStorage.getItem('huangSavedPlans') || '[]');
+    if (!saved[idx]) return;
+
+    if (confirm(`Load plan "${saved[idx].name}"? This will replace your current active plan.`)) {
+        planState = JSON.parse(JSON.stringify(saved[idx].state));
+        applySettingsToUI(planState.settings);
+        saveAndRender();
+        showMsg(`Plan "${saved[idx].name}" loaded!`);
+    }
+}
+
+function deleteSavedPlan(idx) {
+    const saved = JSON.parse(localStorage.getItem('huangSavedPlans') || '[]');
+    const name = saved[idx] ? saved[idx].name : "";
+    if (confirm(`Delete saved plan "${name}"?`)) {
+        saved.splice(idx, 1);
+        localStorage.setItem('huangSavedPlans', JSON.stringify(saved));
+        renderSavedPlans();
+    }
+}
+
 function recalculatePlan() {
     let fullPool = [];
     planState.settings.books.forEach(bIdx => {
